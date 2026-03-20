@@ -1,0 +1,43 @@
+services:
+  elasticsearch:
+    image: elasticsearch-ik:8.12.0  # 你已构建好的镜像
+    container_name: elasticsearch
+    environment:
+      - cluster.name=es-cluster          # 三台节点必须一致
+      - node.name=${NODE_NAME}           # 每台节点唯一，通过环境变量传入
+      - discovery.seed_hosts=${SEED_HOSTS}  # 三台服务器内网IP
+      - cluster.initial_master_nodes=node1,node2,node3  # 首次启动时指定，节点名列表
+      - network.host=0.0.0.0
+      - network.publish_host=${PUBLISH_HOST}  # 本机内网IP，通过环境变量传入
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"  # 集群通信端口，必须开放
+    networks:
+      - elastic
+
+  kibana:  # Kibana只需部署在一台节点上
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - elastic
+
+volumes:
+  esdata:
+
+networks:
+  elastic:
+    driver: bridge
