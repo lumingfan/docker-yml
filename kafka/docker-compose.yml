@@ -1,0 +1,47 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    hostname: kafka
+    restart: always
+    ports:
+      # - "9092:9092" # 内部端口，不再需要映射到宿主机，Docker 网络内自动互通
+      - "9094:9094" # 外部宿主机访问端口
+      - "7071:7071" # JMX Prometheus Exporter 端口
+    environment:
+      # ====== KRaft 模式配置 ======
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=controller,broker
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      
+      # ====== 【核心改变】：内外网双监听器分离 ======
+      # 定义三个监听器：内部(9092)、外部(9094)、控制器(9093)
+      - KAFKA_LISTENERS=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://:9093
+      
+      # 广播给客户端的地址（绝不写死具体局域网 IP）：
+      # 1. 内部容器应用全部通过 INTERNAL 访问，Kafka 返回容器名 "kafka:9092"
+      # 2. 外部访问通过 EXTERNAL 访问，默认使用 "localhost:9094" 供宿主机测试
+      #    如果需要跨机器外网访问，可以借助 .env 传入环境变量 ${DOCKER_HOST_IP:-localhost}
+      - KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://${DOCKER_HOST_IP:-localhost}:9094
+      
+      # 协议映射与内部通信指定
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      
+      # 单机模式副本与事务配置
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      
+      # ====== 监控配置 ======
+      - KAFKA_OPTS=-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent-0.20.0.jar=7071:/opt/jmx-exporter/kafka-jmx.yml
+    volumes:
+      - ./data:/bitnami/kafka
+      - ./jmx-exporter:/opt/jmx-exporter
+    networks:
+      - monitoring-bridge
+
+networks:
+  monitoring-bridge:
+    external: true
