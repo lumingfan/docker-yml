@@ -88,6 +88,8 @@ services:
     depends_on:
       - prometheus
 
+
+
 networks:
   monitoring:
     driver: bridge

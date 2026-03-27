@@ -1,0 +1,18 @@
+services:
+  canal-server:
+    image: canal/canal-server:v1.1.7 # 推荐指定稳定版本
+    container_name: canal-server
+    ports:
+      - "11111:11111" # 客户端直连端口
+      - "11112:11112" # Prometheus metrics 端口
+    volumes:
+      - ./conf/instance.properties:/home/admin/canal-server/conf/example/instance.properties
+      - ./conf/canal.properties:/home/admin/canal-server/conf/canal.properties
+      - ./logs:/home/admin/canal-server/logs
+    networks:
+      - monitoring-bridge
+    restart: unless-stopped
+
+networks:
+  monitoring-bridge:
+    external: true 
