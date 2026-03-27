@@ -1,0 +1,42 @@
+services:
+  elasticsearch:
+    image: elasticsearch-ik:8.12.0  # 你已构建好的镜像
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"  # 集群通信端口，必须开放
+    networks:
+      - elastic
+      - monitoring-bridge
+
+  kibana:  # Kibana只需部署在一台节点上
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - elastic
+
+volumes:
+  esdata:
+
+networks:
+  elastic:
+    driver: bridge
+  monitoring-bridge:
+    external: true
+

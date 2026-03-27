@@ -1,3 +1,8 @@
+# 创建监控网络
+
+docker network create monitoring-bridge
+
+
 # 1. 启动 (自动拉取镜像)
 docker-compose up -d
 

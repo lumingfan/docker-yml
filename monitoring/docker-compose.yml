@@ -1,6 +1,8 @@
 services:
   prometheus:
     image: prom/prometheus:v2.45.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     container_name: prometheus
     restart: unless-stopped
     ports:
@@ -15,6 +17,7 @@ services:
       - '--web.enable-lifecycle'
     networks:
       - monitoring
+      - monitoring-bridge
 
   grafana:
     image: grafana/grafana:10.0.0
@@ -23,8 +26,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - ./data/grafana:/var/lib/grafana
@@ -51,6 +54,42 @@ services:
     networks:
       - monitoring
 
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.15.0
+    container_name: mysqld-exporter
+    restart: unless-stopped
+    ports:
+      - "9104:9104"
+    volumes:
+      - ./prometheus/.my.cnf:/etc/mysqld_exporter/.my.cnf:ro
+    command:
+      - '--config.my-cnf=/etc/mysqld_exporter/.my.cnf'
+    networks:
+      - monitoring
+      - monitoring-bridge  
+    depends_on:
+      - prometheus
+
+  elasticsearch-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
+    container_name: elasticsearch-exporter
+    restart: unless-stopped
+    ports:
+      - "9114:9114"
+    command:
+      # 如果 ES 有密码，需添加 --es.username 和 --es.password
+      # 如果 ES 开启 HTTPS，需添加 --es.ca 和 --es.ssl-skip-verify (测试环境)
+      - '--es.uri=http://elasticsearch:9200'
+      - '--es.all'
+      - '--es.indices'
+    networks:
+      - monitoring
+      - monitoring-bridge
+    depends_on:
+      - prometheus
+
 networks:
   monitoring:
     driver: bridge
+  monitoring-bridge:
+    external: true
